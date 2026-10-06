@@ -32,7 +32,7 @@ struct LegacyImportTests {
         #expect(github.websites == ["https://github.com"])
         #expect(github.username == "octocat")
         #expect(github.password == "pa ss✓")
-        #expect(github.signInMethod == .github)
+        #expect(github.signIns == [SignIn(method: .github)])
         #expect(github.phoneNumber == "+213555000000")
         #expect(github.pin == "0042")
         #expect(github.note.isEmpty)
@@ -41,7 +41,7 @@ struct LegacyImportTests {
     @Test func keepsValuesThatDontFitInTheNote() throws {
         let bank = try LegacyImport.parse(export)[1]
         #expect(bank.websites.isEmpty)
-        #expect(bank.signInMethod == .notSet)
+        #expect(bank.signIns.isEmpty)
         #expect(bank.note.contains("not a url"))
         #expect(bank.note.contains("Carrier Pigeon"))
     }
@@ -59,7 +59,7 @@ struct LegacyImportTests {
         for value in old {
             let json = Data(#"[{"name":"X","authenticationType":"\#(value)"}]"#.utf8)
             let item = try #require(try LegacyImport.parse(json).first)
-            #expect(item.signInMethod.rawValue == value)
+            #expect(item.signIns.map(\.method.rawValue) == [value])
             #expect(item.note.isEmpty)
         }
     }
@@ -78,10 +78,10 @@ struct LegacyImportTests {
     @Test func discordSignInSurvivesSaving() async throws {
         let directory = try TemporaryDirectory()
         let store = try await makeUnlockedStore(in: directory)
-        try store.save(LoginItem(title: "Server", signInMethod: .discord))
+        try store.save(LoginItem(title: "Server", signIns: [SignIn(method: .discord)]))
         let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
         try await relaunched.unlock(masterPassword: masterPassword)
-        #expect(relaunched.items.first?.signInMethod == .discord)
+        #expect(relaunched.items.first?.signIns == [SignIn(method: .discord)])
     }
 
     @Test func acceptsBareArrayFormat() throws {

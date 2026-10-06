@@ -5,9 +5,12 @@ import SwiftUI
 struct LoginDetailView: View {
     let item: LoginItem
     let onDelete: () -> Void
+    /// Shows another login (a linked account, or one that signs in with this one).
+    let onOpen: (LoginItem.ID) -> Void
 
     @Environment(VaultStore.self) private var store
     @State private var isEditing = false
+    @State private var isSplitting = false
 
     var body: some View {
         Form {
@@ -25,6 +28,19 @@ struct LoginDetailView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+            let splitParts = LoginSplit.parts(of: item.title)
+            if !splitParts.isEmpty {
+                Section {
+                    HStack {
+                        Label("This login lists \(splitParts.count) services. Separate logins are easier to find and get their own icon.",
+                              systemImage: "rectangle.split.3x1")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button("Split into \(splitParts.count) Logins…") { isSplitting = true }
+                    }
+                }
             }
             // An all-empty section still draws an empty card and throws off
             // the next section's header, so only show it when it has rows.
@@ -45,16 +61,33 @@ struct LoginDetailView: View {
                     }
                 }
             }
-            if item.signInMethod != .notSet || !item.phoneNumber.isEmpty || !item.pin.isEmpty {
-                Section("Account Details") {
-                    if item.signInMethod != .notSet {
-                        LabeledContent("Sign-in method") {
-                            HStack(spacing: 6) {
-                                SignInMethodIcon(method: item.signInMethod)
-                                Text(item.signInMethod.displayName)
+            if !item.signIns.isEmpty {
+                Section("Sign-in Methods") {
+                    SignInMethodsSummary(signIns: item.signIns, onOpen: onOpen)
+                }
+            }
+            let usedBy = store.logins(signingInWith: item.id)
+            if !usedBy.isEmpty {
+                Section("Used to Sign In To (\(usedBy.count))") {
+                    ForEach(usedBy) { login in
+                        Button {
+                            onOpen(login.id)
+                        } label: {
+                            HStack(spacing: 10) {
+                                ServiceIcon(item: login, size: 22)
+                                Text(login.title)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundStyle(.tertiary)
                             }
+                            .contentShape(.rect)
                         }
+                        .buttonStyle(.plain)
                     }
+                }
+            }
+            if !item.phoneNumber.isEmpty || !item.pin.isEmpty {
+                Section("Account Details") {
                     DetailRow("Phone number", value: item.phoneNumber)
                     DetailRow("PIN", value: item.pin, isSecret: true)
                 }
@@ -86,6 +119,10 @@ struct LoginDetailView: View {
         .navigationTitle(item.title)
         .toolbar {
             ToolbarItemGroup {
+                if !LoginSplit.parts(of: item.title).isEmpty {
+                    Button("Split", systemImage: "rectangle.split.3x1") { isSplitting = true }
+                        .help("Split into one login per service")
+                }
                 Button("Edit", systemImage: "pencil") { isEditing = true }
                     .keyboardShortcut("e")
                 Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
@@ -93,6 +130,11 @@ struct LoginDetailView: View {
         }
         .sheet(isPresented: $isEditing) {
             LoginEditorView(item: item) { try store.save($0) }
+        }
+        .sheet(isPresented: $isSplitting) {
+            SplitLoginSheet(item: item) { parts in
+                if let first = parts.first { onOpen(first.id) }
+            }
         }
     }
 }

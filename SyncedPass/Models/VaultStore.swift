@@ -65,6 +65,29 @@ final class VaultStore {
         status = .unlocked
     }
 
+    /// Replaces the master password after checking the current one.
+    ///
+    /// A new random vault key is generated and everything re-encrypted, rather
+    /// than re-wrapping the old key: if the old password leaked, someone with
+    /// an old copy of the file could otherwise recover the key and read future
+    /// versions too. The kept previous version is replaced for the same reason,
+    /// so nothing on disk still opens with the old password.
+    func changeMasterPassword(current: String, new: String) async throws {
+        guard status == .unlocked, keys != nil else { throw VaultError.locked }
+        let container = try VaultCrypto.container(from: Data(contentsOf: vaultURL), expecting: .vault)
+        _ = try await VaultCrypto.unlock(container, password: current)
+        guard new != current else { throw VaultError.samePassword }
+
+        let newKeys = try await VaultCrypto.makeKeys(password: new, iterations: iterations)
+        guard status == .unlocked else { throw VaultError.locked }  // locked while deriving
+        try write(VaultCrypto.seal(items, kind: .vault, keys: newKeys))
+        keys = newKeys
+
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(at: previousVersionURL)
+        try? fileManager.copyItem(at: vaultURL, to: previousVersionURL)
+    }
+
     func lock() {
         guard status == .unlocked else { return }
         keys = nil
@@ -84,6 +107,53 @@ final class VaultStore {
         try persist(updated)
     }
 
+    /// Adds several new items in one write (all or nothing).
+    func add(_ newItems: [LoginItem]) throws {
+        guard !newItems.isEmpty else { return }
+        try persist(items + newItems)
+    }
+
+    /// Replaces one item with several (used to split a combined login) in a
+    /// single write, so a failure leaves the original untouched.
+    func replace(_ id: LoginItem.ID, with replacements: [LoginItem]) throws {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        var updated = items
+        updated.replaceSubrange(index...index, with: replacements)
+        try persist(updated)
+    }
+
+    func item(_ id: LoginItem.ID?) -> LoginItem? {
+        guard let id else { return nil }
+        return items.first { $0.id == id }
+    }
+
+    /// Logins that record `account` as the account they sign in with.
+    func logins(signingInWith account: LoginItem.ID) -> [LoginItem] {
+        items.filter { $0.signsIn(with: account) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    /// The provider's accounts to choose from: only logins that are such an
+    /// account (Gmail/Google logins for "Sign in with Google"), one per email
+    /// address, sorted by address. Logins that only *use* a Gmail address
+    /// (Facebook, Netflix…) aren't accounts and aren't listed.
+    func accountCandidates(for method: SignInMethod, excluding excluded: LoginItem.ID? = nil) -> [LoginItem] {
+        var seen = Set<String>()
+        return items
+            .filter { $0.id != excluded && method.isAccount($0) }
+            // Exact service matches (a login titled "Gmail") win over keyword
+            // matches ("Google Ads") when two share an address.
+            .sorted { a, b in
+                let aExact = KnownService.matching(a) != nil, bExact = KnownService.matching(b) != nil
+                return aExact != bExact ? aExact : a.title.localizedStandardCompare(b.title) == .orderedAscending
+            }
+            .filter { item in
+                guard let address = item.accountAddress?.lowercased() else { return true }
+                return seen.insert(address).inserted
+            }
+            .sorted { $0.accountChoiceLabel.localizedStandardCompare($1.accountChoiceLabel) == .orderedAscending }
+    }
+
     func delete(id: LoginItem.ID) throws {
         try delete(ids: [id])
     }
@@ -95,14 +165,13 @@ final class VaultStore {
         try persist(items.filter { !ids.contains($0.id) })
     }
 
+    func search(_ query: String) -> LoginSearch.Results {
+        LoginSearch.search(items, for: query)
+    }
+
+    /// Every match for `query` in display order (all items when it's empty).
     func items(matching query: String) -> [LoginItem] {
-        let query = query.trimmed
-        let sorted = items.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
-        guard !query.isEmpty else { return sorted }
-        return sorted.filter { item in
-            ([item.title, item.email, item.username, item.note] + item.websites)
-                .contains { $0.localizedStandardContains(query) }
-        }
+        search(query).all
     }
 
     // MARK: - Backup

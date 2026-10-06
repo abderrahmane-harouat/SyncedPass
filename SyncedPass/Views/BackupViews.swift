@@ -157,12 +157,15 @@ private struct BackupPasswordSheet: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            SecureField("Backup password", text: $password)
-                .focused($focused)
-                .onSubmit(submit)
-            if mode == .export {
-                SecureField("Confirm backup password", text: $confirmation)
+            LabeledField("Backup password") {
+                RevealableField("Backup password", text: $password, focus: $focused)
                     .onSubmit(submit)
+            }
+            if mode == .export {
+                LabeledField("Confirm backup password") {
+                    RevealableField("Confirm backup password", text: $confirmation)
+                        .onSubmit(submit)
+                }
             }
 
             if let message = error ?? (mode == .export && !confirmation.isEmpty ? problem : nil) {

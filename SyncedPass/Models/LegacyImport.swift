@@ -62,7 +62,7 @@ enum LegacyImport {
             username: (platform.username ?? "").trimmed,
             password: platform.password ?? "",
             websites: websites,
-            signInMethod: signInMethod,
+            signIns: signInMethod == .notSet ? [] : [SignIn(method: signInMethod)],
             phoneNumber: (platform.phoneNumber ?? "").trimmed,
             pin: platform.pin ?? "",
             note: notes.joined(separator: "\n"),

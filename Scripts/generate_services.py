@@ -8,9 +8,11 @@ Writes:
 Logos come from two CC0 (public domain) sets:
   - Simple Icons (https://simpleicons.org): single-color marks, tinted by the app
   - gilbarbara/logos via Iconify (https://github.com/gilbarbara/logos): full-color
-    marks for brands Simple Icons no longer carries
-Brands in neither set still get an entry; the app shows a letter in the brand
-color for them. Icons are bundled so the app never asks a server for
+    marks, used for multicolor brands (PREFER_COLOR) and brands Simple Icons
+    no longer carries (COLOR_LOGOS)
+A few services in neither set use their official icon instead, stored in
+Scripts/logos/ (see OFFICIAL_LOGOS). Any other brand still gets an entry; the
+app shows a letter in the brand color for them. Icons are bundled so the app never asks a server for
 logos, which would reveal which sites you have accounts on.
 
 Usage:
@@ -116,6 +118,11 @@ SERVICES = [
     ("hostinger", "Hostinger", ["hostinger.com"], None),
     ("hackerone", "HackerOne", ["hackerone.com"], None),
     ("bugcrowd", "Bugcrowd", ["bugcrowd.com"], None),
+    ("portswigger", "PortSwigger", ["portswigger.net"], None),
+    ("yeswehack", "YesWeHack", ["yeswehack.com"], "E60000"),
+    # Algérie Poste: no free logo, so letter tiles in its brand yellow and blue.
+    ("baridimob", "BaridiMob", ["baridiweb.poste.dz", "epay.poste.dz"], "FECC0B"),
+    ("eccp", "ECCP", ["eccp.poste.dz"], "22297C"),
     ("wikipedia", "Wikipedia", ["wikipedia.org"], None),
     ("duolingo", "Duolingo", ["duolingo.com"], None),
     ("udemy", "Udemy", ["udemy.com"], None),
@@ -124,7 +131,60 @@ SERVICES = [
     ("bitwarden", "Bitwarden", ["bitwarden.com"], None),
     ("1password", "1Password", ["1password.com"], None),
     ("lastpass", "LastPass", ["lastpass.com"], None),
+    ("easyeda", "EasyEDA", ["easyeda.com"], None),
+    ("skillshare", "Skillshare", ["skillshare.com"], None),
+    ("sanity", "Sanity", ["sanity.io"], None),
+    ("poe", "Poe", ["poe.com"], None),
+    ("dailydotdev", "daily.dev", ["daily.dev"], None),
 ]
+
+# Brands whose real logo is multicolor (or whose Simple Icons version is a
+# wordmark that's unreadable in a small tile) use gilbarbara's full-color
+# icon even though Simple Icons has one: drawn in a single color they look
+# wrong (Gmail's M as a white shape on red). Chosen by comparing both sets
+# side by side; wide wordmarks (Yahoo, Stripe, Quora…) and outdated logos
+# (Kraken, Patreon) were rejected.
+PREFER_COLOR = {
+    "google": "google-icon",
+    "gmail": "google-gmail",
+    "googledrive": "google-drive",
+    "youtube": "youtube-icon",
+    "messenger": "messenger",
+    "telegram": "telegram",
+    "tiktok": "tiktok-icon",
+    "zoom": "zoom-icon",
+    "medium": "medium-icon",
+    "figma": "figma",
+    "trello": "trello",
+    "atlassian": "atlassian",
+    "netflix": "netflix-icon",
+    "shopify": "shopify",
+    "paypal": "paypal",
+    "gitlab": "gitlab-icon",
+    "bitbucket": "bitbucket",
+    "stackoverflow": "stackoverflow-icon",
+    "jetbrains": "jetbrains-icon",
+    "cloudflare": "cloudflare-icon",
+    "netlify": "netlify-icon",
+    "firebase": "firebase-icon",
+    "supabase": "supabase-icon",
+    "namecheap": "namecheap",
+}
+
+# Simple Icons only has a wordmark for these, unreadable at tile size; a
+# letter in the brand color is clearer.
+LETTER_ONLY = {"aliexpress", "coinbase"}
+
+# Official icons for services neither CC0 set has, kept in Scripts/logos/.
+# These are the owners' trademarks, bundled only to identify the service:
+# - baridimob.png: the BaridiMob App Store icon (published by Algérie Poste),
+#   a complete app icon, so it fills the tile ("appIcon")
+# - eccp.png: the Algérie Poste emblem from eccp.poste.dz/img/logo.png,
+#   cropped to the emblem (the text below is unreadable at icon size)
+OFFICIAL_LOGOS = {
+    "baridimob": ("baridimob.png", ".appIcon"),
+    "eccp": ("eccp.png", ".color"),
+}
 
 # Full-color fallbacks from gilbarbara/logos, keyed by service id.
 COLOR_LOGOS = {
@@ -219,19 +279,34 @@ def main(package: Path, logos_package: Path) -> None:
     entries = []
     for slug, name, domains, fallback_hex in SERVICES:
         mono_svg = package / "icons" / f"{slug}.svg"
-        if mono_svg.exists():
-            write_imageset(f"service-{slug}", f"{slug}.svg", expand_svg(mono_svg.read_text()), template=True)
-            logo = ".monochrome"
-            color = hex_by_slug.get(slug) or hex_by_title.get(name)
-        elif slug in COLOR_LOGOS:
-            icon = color_logos["icons"][COLOR_LOGOS[slug]]
+        color_name = PREFER_COLOR.get(slug) or (None if mono_svg.exists() else COLOR_LOGOS.get(slug))
+        if slug in OFFICIAL_LOGOS:
+            filename, logo = OFFICIAL_LOGOS[slug]
+            imageset = ASSETS / "Services" / f"service-{slug}.imageset"
+            imageset.mkdir()
+            shutil.copy(ROOT / "Scripts" / "logos" / filename, imageset / filename)
+            write_json(imageset / "Contents.json", {
+                "images": [{"filename": filename, "idiom": "universal"}],
+                "info": {"author": "xcode", "version": 1},
+                "properties": {"template-rendering-intent": "original"},
+            })
+            color = fallback_hex
+        elif slug in LETTER_ONLY:
+            logo = ".none"
+            color = hex_by_slug.get(slug) or hex_by_title.get(name) or fallback_hex
+        elif color_name:
+            icon = color_logos["icons"][color_name]
             width = icon.get("width", color_logos.get("width", 256))
             height = icon.get("height", color_logos.get("height", 256))
             svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">'
                    f'{expand_svg(icon["body"])}</svg>\n')
             write_imageset(f"service-{slug}", f"{slug}.svg", svg, template=False)
             logo = ".color"
-            color = fallback_hex
+            color = hex_by_slug.get(slug) or hex_by_title.get(name) or fallback_hex
+        elif mono_svg.exists():
+            write_imageset(f"service-{slug}", f"{slug}.svg", expand_svg(mono_svg.read_text()), template=True)
+            logo = ".monochrome"
+            color = hex_by_slug.get(slug) or hex_by_title.get(name)
         else:
             logo = ".none"
             color = fallback_hex
@@ -250,9 +325,10 @@ def main(package: Path, logos_package: Path) -> None:
         + "\n".join(entries)
         + "\n    ]\n}\n"
     )
-    count = {kind: sum(f"logo: {kind})" in e for e in entries) for kind in (".monochrome", ".color", ".none")}
+    count = {kind: sum(f"logo: {kind})" in e for e in entries)
+             for kind in (".monochrome", ".color", ".appIcon", ".none")}
     print(f"{len(entries)} services: {count['.monochrome']} single-color logos, "
-          f"{count['.color']} full-color logos, {count['.none']} letter only")
+          f"{count['.color']} full-color logos, {count['.appIcon']} app icons, {count['.none']} letter only")
 
 
 if __name__ == "__main__":

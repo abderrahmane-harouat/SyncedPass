@@ -2,20 +2,29 @@ import AppKit
 import SwiftUI
 
 /// The square icon for a login: the bundled service logo when the login
-/// matches a known service, otherwise its first letter.
+/// matches a known service, otherwise its first letter. Logins signed into
+/// through a provider ("Sign in with Google") carry that provider's logo as a
+/// small badge in the top-left corner.
 struct ServiceIcon: View {
     let title: String
     let service: KnownService?
     var size: CGFloat = 30
+    /// The provider shown as a corner badge, if any.
+    var badge: KnownService?
 
     init(item: LoginItem, size: CGFloat = 30) {
-        self.init(title: item.title, service: KnownService.matching(item), size: size)
+        let service = KnownService.matching(item)
+        let provider = item.signIns.lazy.compactMap(\.method.service).first
+        // No badge on the provider's own logins (a Google login that lists
+        // "Sign in with Google").
+        self.init(title: item.title, service: service, size: size, badge: provider == service ? nil : provider)
     }
 
-    init(title: String, service: KnownService?, size: CGFloat = 30) {
+    init(title: String, service: KnownService?, size: CGFloat = 30, badge: KnownService? = nil) {
         self.title = title
         self.service = service
         self.size = size
+        self.badge = badge
     }
 
     var body: some View {
@@ -34,6 +43,11 @@ struct ServiceIcon: View {
                     .resizable()
                     .scaledToFit()
                     .padding(size * 0.18)
+            case (.appIcon, let name?):
+                Image(name)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(shape)
             default:
                 Text(initial)
                     .font(.system(size: size * 0.46, weight: .semibold, design: .rounded))
@@ -42,6 +56,22 @@ struct ServiceIcon: View {
         }
         .frame(width: size, height: size)
         .overlay(shape.strokeBorder(.separator, lineWidth: 0.5))
+        .overlay(alignment: .topLeading) {
+            if let badge {
+                let badgeSize = max(size * 0.46, 12)
+                let ring = max(size * 0.05, 1.5)
+                ServiceIcon(title: badge.name, service: badge, size: badgeSize)
+                    .padding(ring)
+                    // A ring in the window color keeps the badge readable on
+                    // any logo underneath.
+                    .background(
+                        RoundedRectangle(cornerRadius: (badgeSize + ring * 2) * 0.26, style: .continuous)
+                            .fill(Color(nsColor: .windowBackgroundColor))
+                    )
+                    .offset(x: -size * 0.16, y: -size * 0.16)
+                    .help("Sign in with \(badge.name)")
+            }
+        }
         .accessibilityHidden(true)
     }
 
@@ -55,7 +85,7 @@ struct ServiceIcon: View {
     }
 
     private var background: Color {
-        if service?.logo == .color { return .white }
+        if service?.logo == .color || service?.logo == .appIcon { return .white }
         return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
     }
 
@@ -78,7 +108,8 @@ struct ServiceIcon: View {
 /// popular services to pick from.
 struct ServicePickerButton: View {
     let selected: KnownService?
-    let onPick: (KnownService) -> Void
+    /// Called with the picked service, or nil for "No Service".
+    let onPick: (KnownService?) -> Void
 
     @State private var isPresented = false
     @State private var query = ""
@@ -101,25 +132,39 @@ struct ServicePickerButton: View {
                 TextField("Search services", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .padding(10)
-                List(KnownService.search(query)) { service in
-                    Button {
-                        onPick(service)
-                        isPresented = false
-                        query = ""
-                    } label: {
-                        HStack(spacing: 10) {
-                            ServiceIcon(title: service.name, service: service, size: 24)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(service.name)
-                                Text(service.domains[0])
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
+                List {
+                    if selected != nil, query.trimmed.isEmpty {
+                        Button {
+                            pick(nil)
+                        } label: {
+                            Label("No Service", systemImage: "xmark.circle")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(.rect)
                         }
-                        .contentShape(.rect)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    ForEach(KnownService.search(query)) { service in
+                        Button {
+                            pick(service)
+                        } label: {
+                            HStack(spacing: 10) {
+                                ServiceIcon(title: service.name, service: service, size: 24)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(service.name)
+                                    Text(service.domains[0])
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if service == selected {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .overlay {
                     if KnownService.search(query).isEmpty {
@@ -129,6 +174,12 @@ struct ServicePickerButton: View {
             }
             .frame(width: 280, height: 380)
         }
+    }
+
+    private func pick(_ service: KnownService?) {
+        onPick(service)
+        isPresented = false
+        query = ""
     }
 }
 

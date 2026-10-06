@@ -14,6 +14,8 @@ struct KnownService: Identifiable, Hashable {
         case monochrome
         /// Full-color mark (gilbarbara/logos), drawn as-is on a white tile.
         case color
+        /// A complete app icon with its own background, filling the whole tile.
+        case appIcon
         /// No bundled logo; shows the first letter on the brand color.
         case none
     }
@@ -79,5 +81,79 @@ extension SignInMethod {
         case .discord: "discord"
         }
         return id.flatMap { id in KnownService.all.first { $0.id == id } }
+    }
+
+    /// Services whose logins *are* accounts for this provider: a Gmail login
+    /// is a Google account; a Facebook login that merely uses a Gmail address
+    /// is not.
+    var accountServiceIDs: Set<String> {
+        switch self {
+        case .notSet, .standard: []
+        case .google: ["google", "gmail", "googledrive", "youtube"]
+        case .apple: ["apple", "icloud"]
+        case .microsoft: ["microsoft", "outlook", "xbox"]
+        case .github: ["github"]
+        case .facebook: ["facebook"]
+        case .twitter: ["x"]
+        case .linkedin: ["linkedin"]
+        case .discord: ["discord"]
+        }
+    }
+
+    /// Words that mark a login as one of this provider's accounts when its
+    /// title doesn't exactly match a service, e.g. "Gmail perso" or
+    /// "Google work". Compared against whole words of the title.
+    var accountTitleWords: Set<String> {
+        switch self {
+        case .notSet, .standard: []
+        case .google: ["google", "gmail", "googlemail"]
+        case .apple: ["apple", "icloud"]
+        case .microsoft: ["microsoft", "outlook", "hotmail"]
+        case .github: ["github"]
+        case .facebook: ["facebook"]
+        case .twitter: ["twitter"]
+        case .linkedin: ["linkedin"]
+        case .discord: ["discord"]
+        }
+    }
+
+    /// True when `item` is one of this provider's accounts (not just a login
+    /// that happens to use the same email address).
+    func isAccount(_ item: LoginItem) -> Bool {
+        if let service = KnownService.matching(item), accountServiceIDs.contains(service.id) { return true }
+        let words = item.title.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+        return words.contains(where: accountTitleWords.contains)
+    }
+}
+
+extension LoginItem {
+    /// A copy switched to `service` (or to none), replacing whatever service
+    /// it had before rather than adding to it:
+    /// - the previous service's websites are removed and the new one's added
+    ///   (first, so it's the one the login is recognized by); other websites
+    ///   the user added stay
+    /// - the title follows the service when it's empty or still the previous
+    ///   service's name; a title the user typed themselves is kept
+    func changingService(to service: KnownService?) -> LoginItem {
+        var item = self
+        let previous = KnownService.matching(self)
+        if let previous {
+            item.websites.removeAll { KnownService.matching(website: $0) == previous }
+        }
+        if let service, !item.websites.contains(where: { KnownService.matching(website: $0) == service }) {
+            if let empty = item.websites.firstIndex(where: { $0.trimmed.isEmpty }) {
+                item.websites.remove(at: empty)
+            }
+            item.websites.insert(service.website, at: 0)
+        }
+
+        let title = item.title.trimmed
+        let titleIsPreviousService = previous.map { title.caseInsensitiveCompare($0.name) == .orderedSame } ?? false
+        if title.isEmpty || titleIsPreviousService {
+            // Clearing the service also clears a title that was just its name,
+            // otherwise the login would still match it by title.
+            item.title = service?.name ?? ""
+        }
+        return item
     }
 }

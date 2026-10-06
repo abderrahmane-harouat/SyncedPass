@@ -10,3 +10,6 @@ build/
 # Never commit vault exports or backups
 *backup*.json
 *export*.json
+
+# Python
+__pycache__/

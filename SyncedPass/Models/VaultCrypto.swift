@@ -41,6 +41,7 @@ enum VaultError: LocalizedError, Equatable {
     case unsupportedVersion(Int)
     case unsupportedKDF(String)
     case passwordTooShort(minimum: Int)
+    case samePassword
 
     var errorDescription: String? {
         switch self {
@@ -62,6 +63,8 @@ enum VaultError: LocalizedError, Equatable {
             "This file uses an unsupported key derivation method (\(name))."
         case .passwordTooShort(let minimum):
             "Use at least \(minimum) characters."
+        case .samePassword:
+            "The new password is the same as the current one."
         }
     }
 }

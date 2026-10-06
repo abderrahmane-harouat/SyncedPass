@@ -204,3 +204,172 @@ struct VaultStoreTests {
         #expect(store.items(matching: "").map(\.title) == ["Bank", "GitHub"])
     }
 }
+
+@Suite("Changing the master password")
+struct ChangeMasterPasswordTests {
+    let newPassword = "a brand new passphrase"
+
+    @Test func newPasswordUnlocksAndOldOneNoLongerDoes() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        let items = [makeFullItem(), makeFullItem(title: "Bank")]
+        for item in items { try store.save(item) }
+
+        try await store.changeMasterPassword(current: masterPassword, new: newPassword)
+        #expect(store.status == .unlocked)
+        #expect(store.items.sortedByID == items.sortedByID)
+
+        let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
+        await #expect(throws: VaultError.wrongPassword) { try await relaunched.unlock(masterPassword: masterPassword) }
+        try await relaunched.unlock(masterPassword: newPassword)
+        #expect(relaunched.items.sortedByID == items.sortedByID)
+    }
+
+    @Test func savesAfterTheChangeUseTheNewPassword() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        try await store.changeMasterPassword(current: masterPassword, new: newPassword)
+        try store.save(makeFullItem(title: "Added later"))
+
+        let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
+        try await relaunched.unlock(masterPassword: newPassword)
+        #expect(relaunched.items.map(\.title) == ["Added later"])
+    }
+
+    @Test func vaultKeyIsReplacedNotJustRewrapped() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        try store.save(makeFullItem())
+        let before = try VaultCrypto.container(from: Data(contentsOf: store.vaultURL), expecting: .vault)
+        let oldKeys = try await VaultCrypto.unlock(before, password: masterPassword)
+
+        try await store.changeMasterPassword(current: masterPassword, new: newPassword)
+        let after = try VaultCrypto.container(from: Data(contentsOf: store.vaultURL), expecting: .vault)
+        #expect(after.kdf.salt != before.kdf.salt)
+        // The old vault key can't decrypt the new file.
+        #expect(throws: VaultError.damaged) { try VaultCrypto.open(after, keys: oldKeys) }
+    }
+
+    @Test func noFileOnDiskStillOpensWithTheOldPassword() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        try store.save(makeFullItem())
+        try await store.changeMasterPassword(current: masterPassword, new: newPassword)
+
+        let previous = try VaultCrypto.container(from: Data(contentsOf: store.previousVersionURL), expecting: .vault)
+        await #expect(throws: VaultError.wrongPassword) { try await VaultCrypto.unlock(previous, password: masterPassword) }
+        let previousKeys = try await VaultCrypto.unlock(previous, password: newPassword)
+        #expect(try VaultCrypto.open(previous, keys: previousKeys).count == 1)
+    }
+
+    @Test func wrongCurrentPasswordChangesNothing() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        try store.save(makeFullItem())
+        let before = try Data(contentsOf: store.vaultURL)
+
+        await #expect(throws: VaultError.wrongPassword) {
+            try await store.changeMasterPassword(current: "not the password", new: newPassword)
+        }
+        #expect(try Data(contentsOf: store.vaultURL) == before)
+        #expect(store.status == .unlocked && store.items.count == 1)
+        try store.save(makeFullItem(title: "Still works"))
+        let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
+        try await relaunched.unlock(masterPassword: masterPassword)
+        #expect(relaunched.items.count == 2)
+    }
+
+    @Test func rejectsWeakSameOrLockedChanges() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        let before = try Data(contentsOf: store.vaultURL)
+
+        await #expect(throws: VaultError.passwordTooShort(minimum: 10)) {
+            try await store.changeMasterPassword(current: masterPassword, new: "short")
+        }
+        await #expect(throws: VaultError.samePassword) {
+            try await store.changeMasterPassword(current: masterPassword, new: masterPassword)
+        }
+        #expect(try Data(contentsOf: store.vaultURL) == before)
+
+        store.lock()
+        await #expect(throws: VaultError.locked) {
+            try await store.changeMasterPassword(current: masterPassword, new: newPassword)
+        }
+    }
+}
+
+/// Export a backup, change the master password, then import that backup.
+@Suite("Backup across a master password change")
+struct BackupAcrossPasswordChangeTests {
+    let backupPassword = "backup password 2026"
+    let newMaster = "a brand new passphrase"
+
+    private func backupContainer(_ data: Data, store: VaultStore) throws -> EncryptedContainer {
+        guard case .backup(let container) = try store.inspectImport(data) else { throw VaultError.notSyncedPassFile }
+        return container
+    }
+
+    @Test func backupStillOpensWithItsOwnPasswordAndVaultKeepsTheNewOne() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        let items = [makeFullItem(), makeFullItem(title: "Bank")]
+        try store.add(items)
+
+        let backup = try await store.exportBackup(password: backupPassword)
+        try await store.changeMasterPassword(current: masterPassword, new: newMaster)
+
+        let summary = try await store.importBackup(backupContainer(backup, store: store), password: backupPassword)
+        #expect(summary == .init(added: 0, updated: 0, unchanged: 2))
+        #expect(store.items.sortedByID == items.sortedByID)
+
+        // Importing merges logins; it doesn't bring back the old master password.
+        let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
+        await #expect(throws: VaultError.wrongPassword) { try await relaunched.unlock(masterPassword: masterPassword) }
+        try await relaunched.unlock(masterPassword: newMaster)
+        #expect(relaunched.items.sortedByID == items.sortedByID)
+    }
+
+    @Test func backupProtectedWithTheOldMasterPasswordNeedsThatOldPassword() async throws {
+        let store = try await makeUnlockedStore(in: TemporaryDirectory())
+        try store.save(makeFullItem())
+        // The user chose their (then) master password as the backup password.
+        let backup = try await store.exportBackup(password: masterPassword)
+        try await store.changeMasterPassword(current: masterPassword, new: newMaster)
+
+        let container = try backupContainer(backup, store: store)
+        await #expect(throws: VaultError.wrongPassword) {
+            try await store.importBackup(container, password: newMaster)
+        }
+        let summary = try await store.importBackup(container, password: masterPassword)
+        #expect(summary.unchanged == 1)
+    }
+
+    @Test func changesMadeAfterTheBackupAreMergedNotLost() async throws {
+        let directory = try TemporaryDirectory()
+        let store = try await makeUnlockedStore(in: directory)
+        var edited = makeFullItem(title: "Edited later", modifiedAt: .now.addingTimeInterval(-100))
+        let deleted = makeFullItem(title: "Deleted later", modifiedAt: .now.addingTimeInterval(-100))
+        try store.add([edited, deleted])
+        let backup = try await store.exportBackup(password: backupPassword)
+
+        // After the backup: edit one login, delete one, add one, change the password.
+        edited.password = "changed after the backup"
+        edited.modifiedAt = .now
+        try store.save(edited)
+        try store.delete(id: deleted.id)
+        let added = makeFullItem(title: "Added later")
+        try store.save(added)
+        try await store.changeMasterPassword(current: masterPassword, new: newMaster)
+
+        let summary = try await store.importBackup(backupContainer(backup, store: store), password: backupPassword)
+        #expect(summary == .init(added: 1, updated: 0, unchanged: 1))
+        #expect(store.items.first { $0.id == edited.id }?.password == "changed after the backup", "The newer edit wins")
+        #expect(store.items.contains { $0.id == deleted.id }, "A login deleted after the backup comes back")
+        #expect(store.items.contains { $0.id == added.id }, "Logins added after the backup stay")
+
+        let relaunched = VaultStore(directory: directory.url, iterations: testIterations)
+        try await relaunched.unlock(masterPassword: newMaster)
+        #expect(relaunched.items.count == 3)
+    }
+}

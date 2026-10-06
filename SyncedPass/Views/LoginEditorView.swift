@@ -23,67 +23,75 @@ struct LoginEditorView: View {
                 LabeledContent("Service") {
                     ServicePickerButton(selected: KnownService.matching(draft), onPick: apply)
                 }
-                TextField(text: $draft.title, prompt: Text("Required")) {
-                    Text("Title \(Text("*").foregroundStyle(.red))")
-                }
                 // An empty title is already signalled by the asterisk and the
                 // disabled Save button; only call out whitespace-only titles.
-                FieldError(!draft.title.isEmpty && draft.title.trimmed.isEmpty ? "Title can't be only spaces." : nil)
+                LabeledField(error: !draft.title.isEmpty && draft.title.trimmed.isEmpty ? "Title can't be only spaces." : nil) {
+                    Text("Title \(Text("*").foregroundStyle(.red))")
+                } field: {
+                    TextField("Title", text: $draft.title, prompt: Text("e.g. GitHub"))
+                }
             } footer: {
                 Text("Fields marked \(Text("*").foregroundStyle(.red)) are required. Everything else is optional.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
+            // No textContentType on these: it makes macOS offer its own
+            // Passwords autofill inside this password manager.
             Section("Credentials") {
-                TextField("Email", text: $draft.email, prompt: Text("Optional"))
-                    .textContentType(.emailAddress)
-                FieldError(LoginValidation.emailError(draft.email))
-
-                TextField("Username", text: $draft.username, prompt: Text("Optional"))
-                    .textContentType(.username)
-
-                RevealableField("Password", text: $draft.password)
-                    .textContentType(.password)
-
-                RevealableField("2FA secret (TOTP)", text: $draft.totpSecret)
-                FieldError(LoginValidation.totpError(draft.totpSecret))
+                LabeledField("Email", error: LoginValidation.emailError(draft.email)) {
+                    TextField("Email", text: $draft.email, prompt: Text("name@example.com"))
+                }
+                LabeledField("Username") {
+                    TextField("Username", text: $draft.username, prompt: Text(""))
+                }
+                LabeledField("Password") {
+                    RevealableField("Password", text: $draft.password)
+                }
+                LabeledField("2FA secret (TOTP)", error: LoginValidation.totpError(draft.totpSecret)) {
+                    RevealableField("2FA secret (TOTP)", text: $draft.totpSecret, prompt: "Setup key or otpauth:// link")
+                }
             }
 
             Section("Websites") {
                 ForEach($draft.websites.indices, id: \.self) { index in
-                    HStack {
-                        TextField("Website", text: $draft.websites[index], prompt: Text("example.com (optional)"))
-                            .labelsHidden()
-                        if draft.websites.count > 1 {
-                            Button("Remove website", systemImage: "minus.circle.fill") {
-                                draft.websites.remove(at: index)
+                    LabeledField(error: LoginValidation.websiteError(draft.websites[index])) {
+                        EmptyView()
+                    } field: {
+                        HStack {
+                            TextField("Website", text: $draft.websites[index], prompt: Text("example.com"))
+                            if draft.websites.count > 1 {
+                                Button("Remove website", systemImage: "minus.circle.fill") {
+                                    draft.websites.remove(at: index)
+                                }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(.secondary)
                             }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .foregroundStyle(.secondary)
                         }
                     }
-                    FieldError(LoginValidation.websiteError(draft.websites[index]))
                 }
                 Button("Add Website", systemImage: "plus") { draft.websites.append("") }
                     .buttonStyle(.borderless)
             }
 
+            Section {
+                SignInMethodsEditor(signIns: $draft.signIns, loginID: draft.id)
+            } header: {
+                Text("Sign-in Methods")
+            } footer: {
+                Text("Add every way into this account, e.g. Sign in with Google and a password, and pick which Google account it uses.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Account Details") {
-                Picker("Sign-in method", selection: $draft.signInMethod) {
-                    ForEach(SignInMethod.allCases) { method in
-                        Label {
-                            Text(method.displayName)
-                        } icon: {
-                            method.menuIcon
-                        }
-                        .tag(method)
-                    }
+                LabeledField("Phone number") {
+                    TextField("Phone number", text: $draft.phoneNumber, prompt: Text("e.g. +213 555 12 34 56"))
                 }
-                TextField("Phone number", text: $draft.phoneNumber, prompt: Text("Optional"))
-                    .textContentType(.telephoneNumber)
-                RevealableField("PIN", text: $draft.pin)
+                LabeledField("PIN") {
+                    RevealableField("PIN", text: $draft.pin)
+                }
             }
 
             Section("Note") {
@@ -136,18 +144,11 @@ struct LoginEditorView: View {
         }
     }
 
-    /// Fills in what's still empty from the picked service; never
-    /// overwrites a title the user typed.
-    private func apply(_ service: KnownService) {
-        if draft.title.trimmed.isEmpty { draft.title = service.name }
-        let alreadyListed = draft.websites.contains { KnownService.matching(website: $0) == service }
-        if !alreadyListed {
-            if let empty = draft.websites.firstIndex(where: { $0.trimmed.isEmpty }) {
-                draft.websites[empty] = service.website
-            } else {
-                draft.websites.append(service.website)
-            }
-        }
+    /// Switches the draft to the picked service (or to none), replacing the
+    /// previous one; a title the user typed is kept.
+    private func apply(_ service: KnownService?) {
+        draft = draft.changingService(to: service)
+        if draft.websites.isEmpty { draft.websites = [""] }
     }
 }
 
@@ -156,35 +157,29 @@ private struct CustomFieldEditor: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Image(systemName: field.kind.systemImage)
+                Label(field.kind.displayName, systemImage: field.kind.systemImage)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .help(field.kind.displayName)
-                TextField("Field name", text: $field.name, prompt: Text("Field name (required)"))
-                    .labelsHidden()
-                    .fontWeight(.medium)
+                Spacer()
                 Button("Remove field", systemImage: "minus.circle.fill", action: onRemove)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
             }
-            switch field.kind {
-            case .text:
-                TextField("Value", text: $field.value, prompt: Text("Value"))
-                    .labelsHidden()
-            case .hidden, .totp:
-                RevealableField("Value", text: $field.value, prompt: field.kind == .totp ? "Setup key or otpauth:// link" : "Value")
-                    .labelsHidden()
-            case .date:
-                DatePicker("Date", selection: $field.date, displayedComponents: .date)
-                    .labelsHidden()
+            LabeledField("Name", error: field.name.trimmed.isEmpty ? "Field name is required." : nil) {
+                TextField("Field name", text: $field.name, prompt: Text("e.g. Recovery email"))
             }
-            if field.name.trimmed.isEmpty {
-                FieldError("Field name is required.")
-            }
-            if field.kind == .totp {
-                FieldError(LoginValidation.totpError(field.value))
+            LabeledField("Value", error: field.kind == .totp ? LoginValidation.totpError(field.value) : nil) {
+                switch field.kind {
+                case .text:
+                    TextField("Value", text: $field.value, prompt: Text(""))
+                case .hidden, .totp:
+                    RevealableField("Value", text: $field.value, prompt: field.kind == .totp ? "Setup key or otpauth:// link" : "")
+                case .date:
+                    DatePicker("Date", selection: $field.date, displayedComponents: .date)
+                }
             }
         }
         .padding(.vertical, 2)
