@@ -30,9 +30,11 @@ struct ContentView: View {
             let selectedItems = store.items(matching: "").filter { selection.contains($0.id) }
             switch selectedItems.count {
             case 0:
-                ContentUnavailableView {
-                    Label { Text("No Login Selected") } icon: { AppIconImage(size: 72).opacity(0.5) }
-                }
+                // Like Mail's "No Message Selected": text only.
+                Text("No Login Selected")
+                    .font(.title3)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             case 1:
                 LoginDetailView(item: selectedItems[0], onDelete: { pendingDeletion = [selectedItems[0].id] }, onOpen: open)
             default:
@@ -132,9 +134,13 @@ struct ContentView: View {
         .overlay {
             if store.items.isEmpty {
                 ContentUnavailableView {
-                    Label { Text("No Passwords Yet") } icon: { AppIconImage(size: 72) }
+                    Label("No Logins Yet", systemImage: "person.badge.key")
                 } description: {
-                    Text("Click + to save your first login.")
+                    Text("Save your first login, or import a backup.")
+                } actions: {
+                    Button("New Login") { isCreating = true }
+                        .buttonStyle(.borderedProminent)
+                    Button("Import…") { isImporting = true }
                 }
             } else if results.all.isEmpty {
                 ContentUnavailableView.search(text: searchText)
