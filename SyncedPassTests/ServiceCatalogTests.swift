@@ -15,6 +15,11 @@ struct ServiceCatalogTests {
         #expect(id("https://www.yeswehack.com/programs") == "yeswehack")
         #expect(id("https://eccp.poste.dz/") == "eccp")
         #expect(id("https://portswigger.net/web-security") == "portswigger")
+        #expect(id("https://accounts.hsoub.com/login") == "hsoub")
+        #expect(id("https://tuwaiq.edu.sa/") == "tuwaiq")
+        #expect(id("dribbble.com/shots") == "dribbble")
+        #expect(id("https://dashboard.ngrok.com/") == "ngrok")
+        #expect(id("https://app.lemonsqueezy.com/") == "lemonsqueezy")
         #expect(id("baridiweb.poste.dz") == "baridimob")
         #expect(id("https://www.poste.dz") == nil, "Algérie Poste's main site is neither service")
     }
@@ -35,6 +40,8 @@ struct ServiceCatalogTests {
         #expect(KnownService.matching(LoginItem(title: "yeswehack"))?.id == "yeswehack")
         #expect(KnownService.matching(LoginItem(title: "Baridimob"))?.id == "baridimob")
         #expect(KnownService.matching(LoginItem(title: "eccp"))?.id == "eccp")
+        #expect(KnownService.matching(LoginItem(title: "tuwaiq"))?.id == "tuwaiq")
+        #expect(KnownService.matching(LoginItem(title: "Lemon Squeezy"))?.id == "lemonsqueezy")
         #expect(KnownService.matching(LoginItem(title: "My bank")) == nil)
     }
 
@@ -53,6 +60,7 @@ struct ServiceCatalogTests {
     @Test func algeriePosteServicesUseTheirOfficialIcons() {
         #expect(KnownService.all.first { $0.id == "baridimob" }?.logo == .appIcon)
         #expect(KnownService.all.first { $0.id == "eccp" }?.logo == .color)
+        #expect(KnownService.all.first { $0.id == "hsoub" }?.logo == .appIcon)
     }
 
     // MARK: Changing a login's service

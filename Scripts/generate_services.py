@@ -119,6 +119,11 @@ SERVICES = [
     ("hackerone", "HackerOne", ["hackerone.com"], None),
     ("bugcrowd", "Bugcrowd", ["bugcrowd.com"], None),
     ("portswigger", "PortSwigger", ["portswigger.net"], None),
+    ("hsoub", "Hsoub", ["hsoub.com"], "404245"),
+    ("tuwaiq", "Tuwaiq", ["tuwaiq.edu.sa"], "5C49BD"),
+    ("dribbble", "Dribbble", ["dribbble.com"], None),
+    ("ngrok", "ngrok", ["ngrok.com"], None),
+    ("lemonsqueezy", "Lemon Squeezy", ["lemonsqueezy.com"], None),
     ("yeswehack", "YesWeHack", ["yeswehack.com"], "E60000"),
     # Algérie Poste: no free logo, so letter tiles in its brand yellow and blue.
     ("baridimob", "BaridiMob", ["baridiweb.poste.dz", "epay.poste.dz"], "FECC0B"),
@@ -169,6 +174,7 @@ PREFER_COLOR = {
     "firebase": "firebase-icon",
     "supabase": "supabase-icon",
     "namecheap": "namecheap",
+    "dribbble": "dribbble-icon",
 }
 
 # Simple Icons only has a wordmark for these, unreadable at tile size; a
@@ -181,8 +187,14 @@ LETTER_ONLY = {"aliexpress", "coinbase"}
 #   a complete app icon, so it fills the tile ("appIcon")
 # - eccp.png: the Algérie Poste emblem from eccp.poste.dz/img/logo.png,
 #   cropped to the emblem (the text below is unreadable at icon size)
+# - hsoub.png: the apple-touch-icon from accounts.hsoub.com (Hsoub's mark on
+#   its dark background), a complete icon, so it fills the tile
+# - tuwaiq.png: the favicon from tuwaiq.edu.sa (the stepped mountain mark
+#   with "طويق"), trimmed to its edges
 OFFICIAL_LOGOS = {
+    "tuwaiq": ("tuwaiq.png", ".color"),
     "baridimob": ("baridimob.png", ".appIcon"),
+    "hsoub": ("hsoub.png", ".appIcon"),
     "eccp": ("eccp.png", ".color"),
 }
 

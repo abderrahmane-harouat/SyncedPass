@@ -11,9 +11,11 @@ under CC0 1.0 (public domain):
   brands whose real logo is multicolor (Google, Gmail, Microsoft, Slack, …) and
   for brands Simple Icons doesn't carry
 
-Two services use their official icons, stored in `Scripts/logos/`: BaridiMob
-(its App Store icon, published by Algérie Poste) and ECCP (the Algérie Poste
-emblem from eccp.poste.dz). These are Algérie Poste trademarks, not CC0.
+Four services use their official icons, stored in `Scripts/logos/`: BaridiMob
+(its App Store icon, published by Algérie Poste), ECCP (the Algérie Poste
+emblem from eccp.poste.dz), Hsoub (the icon from accounts.hsoub.com) and
+Tuwaiq Academy (the favicon from tuwaiq.edu.sa). These
+are their owners' trademarks, not CC0.
 
 The logos are trademarks of their respective owners. Their use here identifies
 the service a saved login belongs to and does not imply endorsement.
