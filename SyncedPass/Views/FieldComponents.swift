@@ -110,3 +110,18 @@ struct LabeledField<Label: View, Field: View>: View {
         .padding(.vertical, 4)
     }
 }
+
+/// The app's own icon (the padlock from AppIcon.icon), used wherever the
+/// interface shows the app's identity, so it always matches the Dock.
+struct AppIconImage: View {
+    var size: CGFloat = 96
+
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}

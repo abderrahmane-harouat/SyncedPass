@@ -152,9 +152,7 @@ private struct LockScreen<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(.tint)
+            AppIconImage(size: 112)
             Text(title)
                 .font(.title.weight(.semibold))
             Text(message)

@@ -30,7 +30,9 @@ struct ContentView: View {
             let selectedItems = store.items(matching: "").filter { selection.contains($0.id) }
             switch selectedItems.count {
             case 0:
-                ContentUnavailableView("No Login Selected", systemImage: "key.horizontal")
+                ContentUnavailableView {
+                    Label { Text("No Login Selected") } icon: { AppIconImage(size: 72).opacity(0.5) }
+                }
             case 1:
                 LoginDetailView(item: selectedItems[0], onDelete: { pendingDeletion = [selectedItems[0].id] }, onOpen: open)
             default:
@@ -130,7 +132,7 @@ struct ContentView: View {
         .overlay {
             if store.items.isEmpty {
                 ContentUnavailableView {
-                    Label("No Passwords Yet", systemImage: "key")
+                    Label { Text("No Passwords Yet") } icon: { AppIconImage(size: 72) }
                 } description: {
                     Text("Click + to save your first login.")
                 }
