@@ -9,6 +9,12 @@ SyncedPass is a password manager for the Mac that keeps your logins **on your ow
 > **Local only. No cloud.**
 > SyncedPass has no account, no server and no sync service. Your vault is an encrypted file on your Mac and is never uploaded anywhere. The app doesn't even have permission to use the network: its macOS sandbox doesn't grant network access, and service logos are bundled with the app, not downloaded. Syncing with other devices (planned, see the to-do list) will happen directly between your own devices on your local network.
 
+![SyncedPass main window showing a list of logins with service logos, and the details of a Gmail login](docs/screenshots/main.png)
+
+<p align="center"><img src="docs/screenshots/lock.png" width="60%" alt="SyncedPass lock screen asking for the master password"></p>
+
+<p align="center"><sub>Screenshots use made-up sample data.</sub></p>
+
 ---
 
 ## Features
