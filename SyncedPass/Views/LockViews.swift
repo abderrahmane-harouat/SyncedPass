@@ -5,6 +5,7 @@ import SwiftUI
 /// automatically when the Mac sleeps or the screen locks.
 struct RootView: View {
     @Environment(VaultStore.self) private var store
+    @Environment(SyncService.self) private var sync
 
     var body: some View {
         Group {
@@ -14,6 +15,8 @@ struct RootView: View {
             case .unlocked: ContentView()
             }
         }
+        // Sync only runs while the vault is unlocked.
+        .onChange(of: store.status, initial: true) { sync.refresh() }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
             store.lock()
         }

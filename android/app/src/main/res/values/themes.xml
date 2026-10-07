@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- No Material dependency: a plain platform theme; Compose draws everything. -->
+    <style name="Theme.SyncedPass" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/page</item>
+    </style>
+
+    <!-- The system date picker used by date custom fields, in the app's gold. -->
+    <style name="Theme.SyncedPass.DatePicker" parent="android:Theme.DeviceDefault.Light.Dialog">
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
+</resources>

@@ -131,8 +131,8 @@ struct VaultCryptoTests {
         #expect(throws: VaultError.wrongKind(.vault)) { try VaultCrypto.container(from: vaultData, expecting: .backup) }
 
         var newer = container
-        newer.version = 2
-        #expect(throws: VaultError.unsupportedVersion(2)) {
+        newer.version = EncryptedContainer.currentVersion + 1
+        #expect(throws: VaultError.unsupportedVersion(EncryptedContainer.currentVersion + 1)) {
             try VaultCrypto.container(from: JSONEncoder().encode(newer), expecting: .vault)
         }
         var otherKDF = container

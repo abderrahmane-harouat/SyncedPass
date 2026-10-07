@@ -3,6 +3,9 @@ import Observation
 
 /// Owns the encrypted vault file and the decrypted items while unlocked.
 ///
+/// Deleting a login leaves a deletion record, so sync spreads the deletion
+/// instead of the login coming back from another device (docs/SYNC.md).
+///
 /// Every change is written to disk before it shows up in `items`, so if a
 /// write fails the app keeps showing what is actually saved. Writes are
 /// atomic, and the version before the latest save is kept next to the vault
@@ -27,6 +30,11 @@ final class VaultStore {
 
     private(set) var status: Status
     private(set) var items: [LoginItem] = []
+    /// Everything in the vault: logins, deletion records and the sync
+    /// identity. Empty while locked.
+    private(set) var contents = VaultContents()
+    /// Called after every saved change, so sync can tell other devices.
+    @ObservationIgnored var onChange: (() -> Void)?
     @ObservationIgnored private var keys: VaultKeys?
 
     let vaultURL: URL
@@ -49,9 +57,9 @@ final class VaultStore {
     func create(masterPassword: String) async throws {
         guard status == .needsSetup else { return }
         let newKeys = try await VaultCrypto.makeKeys(password: masterPassword, iterations: iterations)
-        try write(VaultCrypto.seal([], kind: .vault, keys: newKeys))
+        try write(VaultCrypto.seal(VaultContents(), keys: newKeys))
         keys = newKeys
-        items = []
+        publish(VaultContents())
         status = .unlocked
     }
 
@@ -60,7 +68,7 @@ final class VaultStore {
         let data = try Data(contentsOf: vaultURL)
         let container = try VaultCrypto.container(from: data, expecting: .vault)
         let unlockedKeys = try await VaultCrypto.unlock(container, password: masterPassword)
-        items = try VaultCrypto.open(container, keys: unlockedKeys)
+        publish(try VaultCrypto.openContents(container, keys: unlockedKeys))
         keys = unlockedKeys
         status = .unlocked
     }
@@ -80,7 +88,7 @@ final class VaultStore {
 
         let newKeys = try await VaultCrypto.makeKeys(password: new, iterations: iterations)
         guard status == .unlocked else { throw VaultError.locked }  // locked while deriving
-        try write(VaultCrypto.seal(items, kind: .vault, keys: newKeys))
+        try write(VaultCrypto.seal(contents, keys: newKeys))
         keys = newKeys
 
         let fileManager = FileManager.default
@@ -91,35 +99,40 @@ final class VaultStore {
     func lock() {
         guard status == .unlocked else { return }
         keys = nil
-        items = []
+        publish(VaultContents())
         status = .locked
     }
 
     // MARK: - Items
 
     func save(_ item: LoginItem) throws {
-        var updated = items
-        if let index = updated.firstIndex(where: { $0.id == item.id }) {
-            updated[index] = item
-        } else {
-            updated.append(item)
+        try update { contents in
+            if let index = contents.items.firstIndex(where: { $0.id == item.id }) {
+                contents.items[index] = item
+            } else {
+                contents.items.append(item)
+            }
+            // Saving a login that was deleted on another device brings it back.
+            contents.deletions.removeAll { $0.id == item.id }
         }
-        try persist(updated)
     }
 
     /// Adds several new items in one write (all or nothing).
     func add(_ newItems: [LoginItem]) throws {
         guard !newItems.isEmpty else { return }
-        try persist(items + newItems)
+        try update { $0.items += newItems }
     }
 
     /// Replaces one item with several (used to split a combined login) in a
     /// single write, so a failure leaves the original untouched.
     func replace(_ id: LoginItem.ID, with replacements: [LoginItem]) throws {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        var updated = items
-        updated.replaceSubrange(index...index, with: replacements)
-        try persist(updated)
+        try update { contents in
+            contents.items.replaceSubrange(index...index, with: replacements)
+            if !replacements.contains(where: { $0.id == id }) {
+                contents.deletions.append(Deletion(id: id, deletedAt: .now))
+            }
+        }
     }
 
     func item(_ id: LoginItem.ID?) -> LoginItem? {
@@ -162,7 +175,13 @@ final class VaultStore {
     /// or (if saving fails) none are.
     func delete(ids: Set<LoginItem.ID>) throws {
         guard items.contains(where: { ids.contains($0.id) }) else { return }
-        try persist(items.filter { !ids.contains($0.id) })
+        let now = Date.now
+        try update { contents in
+            let deleted = contents.items.filter { ids.contains($0.id) }.map(\.id)
+            contents.items.removeAll { ids.contains($0.id) }
+            contents.deletions.removeAll { ids.contains($0.id) }
+            contents.deletions += deleted.map { Deletion(id: $0, deletedAt: now) }
+        }
     }
 
     func search(_ query: String) -> LoginSearch.Results {
@@ -202,9 +221,11 @@ final class VaultStore {
     /// Adds imported items without creating duplicates:
     /// - same ID (a backup of this vault): the newer edit wins
     /// - same title, username, email, password and websites: already there, skipped
+    /// - a login that was deleted: restored, as a new edit so sync spreads the restore
     /// - anything else: added
     func merge(_ incoming: [LoginItem]) throws -> ImportSummary {
         var result = items
+        var deletions = contents.deletions
         var summary = ImportSummary()
         for item in incoming {
             if let index = result.firstIndex(where: { $0.id == item.id }) {
@@ -216,23 +237,59 @@ final class VaultStore {
                 }
             } else if result.contains(where: { $0.hasSameCredentials(as: item) }) {
                 summary.unchanged += 1
+            } else if let deleted = deletions.firstIndex(where: { $0.id == item.id }) {
+                deletions.remove(at: deleted)
+                var restored = item
+                restored.modifiedAt = .now
+                result.append(restored)
+                summary.added += 1
             } else {
                 result.append(item)
                 summary.added += 1
             }
         }
         if summary.added + summary.updated > 0 {
-            try persist(result)
+            try update { contents in
+                contents.items = result
+                contents.deletions = deletions
+            }
         }
         return summary
     }
 
+    // MARK: - Sync
+
+    /// Merges logins and deletions from another device; true when anything changed.
+    @discardableResult
+    func applySync(_ records: SyncRecords) throws -> Bool {
+        guard let merged = contents.merging(records, notAfter: .now + SyncProtocol.maxClockSkew) else { return false }
+        try update { $0 = merged }
+        return true
+    }
+
+    /// Changes the sync identity (pairing, unpairing).
+    func updateSync(_ transform: (inout SyncIdentity?) -> Void) throws {
+        var sync = contents.sync
+        transform(&sync)
+        guard sync != contents.sync else { return }
+        try update { $0.sync = sync }
+    }
+
     // MARK: - Disk
 
-    private func persist(_ newItems: [LoginItem]) throws {
+    /// Applies `change` to the contents and saves the result.
+    private func update(_ change: (inout VaultContents) -> Void) throws {
         guard status == .unlocked, let keys else { throw VaultError.locked }
-        try write(VaultCrypto.seal(newItems, kind: .vault, keys: keys))
-        items = newItems
+        var updated = contents
+        change(&updated)
+        try write(VaultCrypto.seal(updated, keys: keys))
+        publish(updated)
+        onChange?()
+    }
+
+    private func publish(_ newContents: VaultContents) {
+        contents = newContents
+        items = newContents.items
     }
 
     private func write(_ data: Data) throws {

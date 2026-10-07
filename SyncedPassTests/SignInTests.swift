@@ -43,6 +43,7 @@ struct SignInTests {
             legacyItemJSON(signInMethod: "Google OAuth"), using: keys.vaultKey,
             authenticating: Data("SyncedPass v1 payload: SyncedPass Vault".utf8)).combined!
         var legacy = container
+        legacy.version = 1  // older versions wrote a plain list of logins
         legacy.payload = payload
         try JSONEncoder().encode(legacy).write(to: store.vaultURL)
 

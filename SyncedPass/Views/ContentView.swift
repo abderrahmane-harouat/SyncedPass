@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var isChangingPassword = false
+    @State private var isShowingSync = false
     @State private var exportAfterPasswordChange = false
     @State private var errorMessage: String?
 
@@ -53,9 +54,10 @@ struct ContentView: View {
                         .disabled(store.items.isEmpty)
                     Button("Import…", systemImage: "square.and.arrow.down") { isImporting = true }
                     Divider()
+                    Button("Sync with Phone…", systemImage: "arrow.triangle.2.circlepath") { isShowingSync = true }
                     Button("Change Master Password…", systemImage: "key.viewfinder") { isChangingPassword = true }
                 }
-                .help("Backups and master password")
+                .help("Backups, sync and master password")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button("Lock", systemImage: "lock") { store.lock() }
@@ -71,7 +73,8 @@ struct ContentView: View {
         }
         .focusedSceneValue(\.newLoginActions, NewLoginActions(
             newLogin: { isCreating = true },
-            changeMasterPassword: { isChangingPassword = true }))
+            changeMasterPassword: { isChangingPassword = true },
+            showSync: { isShowingSync = true }))
         .sheet(isPresented: $isChangingPassword, onDismiss: {
             // Open the export sheet only once this one has closed.
             if exportAfterPasswordChange {
@@ -82,6 +85,7 @@ struct ContentView: View {
             ChangeMasterPasswordSheet { exportAfterPasswordChange = true }
         }
         .backupFlows(exportRequested: $isExporting, importRequested: $isImporting)
+        .sheet(isPresented: $isShowingSync) { SyncSheet() }
         .confirmationDialog(
             deletionTitle,
             isPresented: Binding(get: { !pendingDeletion.isEmpty }, set: { if !$0 { pendingDeletion = [] } }),

@@ -97,6 +97,7 @@ extension KnownService {
         KnownService(id: "ngrok", name: "ngrok", domains: ["ngrok.com"], color: 0x1F1E37, logo: .monochrome),
         KnownService(id: "lemonsqueezy", name: "Lemon Squeezy", domains: ["lemonsqueezy.com"], color: 0xFFC233, logo: .monochrome),
         KnownService(id: "yeswehack", name: "YesWeHack", domains: ["yeswehack.com"], color: 0xE60000, logo: .none),
+        KnownService(id: "projectdiscovery", name: "ProjectDiscovery", domains: ["projectdiscovery.io"], color: 0x09090B, logo: .appIcon),
         KnownService(id: "baridimob", name: "BaridiMob", domains: ["baridiweb.poste.dz", "epay.poste.dz"], color: 0xFECC0B, logo: .appIcon),
         KnownService(id: "eccp", name: "ECCP", domains: ["eccp.poste.dz"], color: 0x22297C, logo: .color),
         KnownService(id: "wikipedia", name: "Wikipedia", domains: ["wikipedia.org"], color: 0x000000, logo: .monochrome),

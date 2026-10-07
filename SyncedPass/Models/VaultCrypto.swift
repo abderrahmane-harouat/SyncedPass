@@ -21,7 +21,11 @@ struct EncryptedContainer: Codable, Equatable {
         var salt: Data
     }
 
-    static let currentVersion = 1
+    /// The newest format this version reads. Vaults are written as 2 (a
+    /// `VaultContents` object), backups as 1 (a list of logins); see docs/SYNC.md.
+    static let currentVersion = 2
+    static let vaultVersion = 2
+    static let backupVersion = 1
 
     var format: Kind
     var version: Int
@@ -115,16 +119,34 @@ enum VaultCrypto {
         return VaultKeys(vaultKey: SymmetricKey(data: keyData), kdf: container.kdf, wrappedKey: container.wrappedKey)
     }
 
+    /// A vault (with everything in `VaultContents`) or a backup (logins only).
     static func seal(_ items: [LoginItem], kind: EncryptedContainer.Kind, keys: VaultKeys) throws -> Data {
-        let plaintext = try itemEncoder.encode(items)
+        switch kind {
+        case .vault: try seal(VaultContents(items: items), keys: keys)
+        case .backup: try seal(itemEncoder.encode(items), kind: .backup, version: EncryptedContainer.backupVersion, keys: keys)
+        }
+    }
+
+    /// A vault file, format version 2.
+    static func seal(_ contents: VaultContents, keys: VaultKeys) throws -> Data {
+        try seal(itemEncoder.encode(contents), kind: .vault, version: EncryptedContainer.vaultVersion, keys: keys)
+    }
+
+    private static func seal(_ plaintext: Data, kind: EncryptedContainer.Kind, version: Int, keys: VaultKeys) throws -> Data {
         let payload = try AES.GCM.seal(plaintext, using: keys.vaultKey, authenticating: payloadAAD(kind)).combined!
         let container = EncryptedContainer(
-            format: kind, version: EncryptedContainer.currentVersion,
-            kdf: keys.kdf, wrappedKey: keys.wrappedKey, payload: payload)
+            format: kind, version: version, kdf: keys.kdf, wrappedKey: keys.wrappedKey, payload: payload)
         return try containerEncoder.encode(container)
     }
 
+    /// The logins in a vault or backup.
     static func open(_ container: EncryptedContainer, keys: VaultKeys) throws -> [LoginItem] {
+        try openContents(container, keys: keys).items
+    }
+
+    /// Everything in a vault: version 1 files are a list of logins, version 2
+    /// a `VaultContents` object.
+    static func openContents(_ container: EncryptedContainer, keys: VaultKeys) throws -> VaultContents {
         let plaintext: Data
         do {
             let box = try AES.GCM.SealedBox(combined: container.payload)
@@ -133,7 +155,10 @@ enum VaultCrypto {
             throw VaultError.damaged
         }
         do {
-            return try itemDecoder.decode([LoginItem].self, from: plaintext)
+            if container.format == .vault, container.version >= 2 {
+                return try itemDecoder.decode(VaultContents.self, from: plaintext)
+            }
+            return VaultContents(items: try itemDecoder.decode([LoginItem].self, from: plaintext))
         } catch {
             throw VaultError.damaged
         }

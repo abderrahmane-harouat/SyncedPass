@@ -125,6 +125,7 @@ SERVICES = [
     ("ngrok", "ngrok", ["ngrok.com"], None),
     ("lemonsqueezy", "Lemon Squeezy", ["lemonsqueezy.com"], None),
     ("yeswehack", "YesWeHack", ["yeswehack.com"], "E60000"),
+    ("projectdiscovery", "ProjectDiscovery", ["projectdiscovery.io"], "09090B"),
     # Algérie Poste: no free logo, so letter tiles in its brand yellow and blue.
     ("baridimob", "BaridiMob", ["baridiweb.poste.dz", "epay.poste.dz"], "FECC0B"),
     ("eccp", "ECCP", ["eccp.poste.dz"], "22297C"),
@@ -189,6 +190,8 @@ LETTER_ONLY = {"aliexpress", "coinbase"}
 #   cropped to the emblem (the text below is unreadable at icon size)
 # - hsoub.png: the apple-touch-icon from accounts.hsoub.com (Hsoub's mark on
 #   its dark background), a complete icon, so it fills the tile
+# - projectdiscovery.png: the favicon.svg from projectdiscovery.io (the swirl
+#   on its dark tile), rendered at 512 px; a complete icon, so it fills the tile
 # - tuwaiq.png: the favicon from tuwaiq.edu.sa (the stepped mountain mark
 #   with "طويق"), trimmed to its edges
 OFFICIAL_LOGOS = {
@@ -196,6 +199,7 @@ OFFICIAL_LOGOS = {
     "baridimob": ("baridimob.png", ".appIcon"),
     "hsoub": ("hsoub.png", ".appIcon"),
     "eccp": ("eccp.png", ".color"),
+    "projectdiscovery": ("projectdiscovery.png", ".appIcon"),
 }
 
 # Full-color fallbacks from gilbarbara/logos, keyed by service id.

@@ -21,6 +21,7 @@ struct ServiceCatalogTests {
         #expect(id("https://dashboard.ngrok.com/") == "ngrok")
         #expect(id("https://app.lemonsqueezy.com/") == "lemonsqueezy")
         #expect(id("baridiweb.poste.dz") == "baridimob")
+        #expect(id("https://cloud.projectdiscovery.io/scans") == "projectdiscovery")
         #expect(id("https://www.poste.dz") == nil, "Algérie Poste's main site is neither service")
     }
 

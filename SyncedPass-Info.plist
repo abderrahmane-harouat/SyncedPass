@@ -3,6 +3,12 @@
 <plist version="1.0">
 <dict>
 	<!-- Merged with the keys Xcode generates (GENERATE_INFOPLIST_FILE). -->
+	<!-- Sync: this Mac announces itself, and looks for phones (docs/SYNC.md). -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_syncedpass._tcp</string>
+		<string>_syncedpass-phone._tcp</string>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
