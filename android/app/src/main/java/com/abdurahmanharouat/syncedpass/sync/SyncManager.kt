@@ -144,10 +144,14 @@ class SyncManager(context: Context, private val store: VaultStore, private val s
         if (registration != null && advertisedReadyToPair == ready) return
         unadvertise()
         val info = NsdServiceInfo().apply {
-            serviceName = deviceName
+            // A generic name: anyone on the network can see it, and device names
+            // often hold their owner's name. Macs tell phones apart by their keys.
+            serviceName = "SyncedPass"
             serviceType = SERVICE_TYPE
             this.port = port
             setAttribute("pairing", if (ready) "1" else "0")
+            // Only while pairing, which the user starts: for the Mac's list of phones.
+            if (ready) setAttribute("name", deviceName)
         }
         val listener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(info: NsdServiceInfo) {}

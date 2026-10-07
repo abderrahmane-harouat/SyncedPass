@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Observation
+import SystemConfiguration
 
 /// Syncs the vault with paired phones over the local network (docs/SYNC.md).
 ///
@@ -32,10 +33,13 @@ final class SyncService {
 
     /// A phone announcing SyncedPass on the network.
     struct FoundPhone: Hashable, Identifiable {
+        /// Its service name: "SyncedPass", made unique on the network.
         let name: String
         let endpoint: NWEndpoint
         /// Its pairing screen is open.
         let readyToPair: Bool
+        /// The phone's own name, which it only announces while pairing.
+        var displayName: String? = nil
         var id: String { name }
     }
 
@@ -76,7 +80,9 @@ final class SyncService {
 
     init(store: VaultStore) {
         self.store = store
-        deviceName = Host.current().localizedName ?? "Mac"
+        // The name in System Settings ▸ General ▸ Sharing. Not Host.current(),
+        // which looks up this Mac's addresses on the DNS server.
+        deviceName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "Mac"
         store.onChange = { [weak self] in self?.vaultChanged() }
         #if DEBUG
         // Testing only: a phone at a fixed address ("host:port"), e.g. an emulator through `adb forward`.
@@ -162,9 +168,10 @@ final class SyncService {
     private func phonesChanged(_ results: Set<NWBrowser.Result>) {
         browsedPhones = results.compactMap { result in
             guard case .service(let name, _, _, _) = result.endpoint else { return nil }
-            var ready = false
-            if case .bonjour(let record) = result.metadata { ready = record["pairing"] == "1" }
-            return FoundPhone(name: name, endpoint: result.endpoint, readyToPair: ready)
+            guard case .bonjour(let record) = result.metadata else {
+                return FoundPhone(name: name, endpoint: result.endpoint, readyToPair: false)
+            }
+            return FoundPhone(name: name, endpoint: result.endpoint, readyToPair: record["pairing"] == "1", displayName: record["name"])
         }
         updatePhones()
         connectToPhones()
@@ -180,7 +187,9 @@ final class SyncService {
         parameters.prohibitedInterfaceTypes = [.cellular]
         parameters.includePeerToPeer = false
         guard let listener = try? NWListener(using: parameters, on: Self.listeningPort) else { return }
-        listener.service = NWListener.Service(name: nil, type: SyncProtocol.macServiceType)
+        // A generic name, not this Mac's (which often holds its owner's name):
+        // anyone on the network can see it. Phones tell Macs apart by their keys.
+        listener.service = NWListener.Service(name: "SyncedPass", type: SyncProtocol.macServiceType)
         listener.newConnectionHandler = { [weak self] connection in
             MainActor.assumeIsolated { self?.accept(connection) }
         }

@@ -9,6 +9,9 @@ SyncedPass is a password manager for the Mac and Android that keeps your logins 
 > **Local only. No cloud.**
 > SyncedPass has no account, no server and no cloud service. Your vault is an encrypted file on each of your devices and is never uploaded anywhere. The only network access the app has is for syncing with your own paired phone, directly over your local network: it only connects to, and accepts connections from, the local network, and only syncs with devices you paired. Service logos are bundled with the app, not downloaded.
 
+> **Privacy first.**
+> No analytics, no telemetry, no crash reporting, no tracking: the app never sends anything to anyone. It also switches off the macOS and Android features that could pass your logins to Apple, Google or Samsung, like Universal Clipboard, Writing Tools, autofill, keyboard learning and assistants that read the screen. See [PRIVACY.md](PRIVACY.md).
+
 ![SyncedPass main window showing a list of logins with service logos, and the details of a Gmail login](docs/screenshots/main.png)
 
 <p align="center"><img src="docs/screenshots/lock.png" width="60%" alt="SyncedPass lock screen asking for the master password"></p>
@@ -36,6 +39,7 @@ SyncedPass is a password manager for the Mac and Android that keeps your logins 
 - **Sync with your Android phone** over your local network only: pair once by comparing a 6-digit code, then changes sync automatically, login by login, end-to-end encrypted. See [Sync](#sync).
 - **Change the master password** at any time.
 - **Locks automatically** when the Mac sleeps or the screen locks, and on demand with ⌘L.
+- **Private by design:** copied logins stay on the device, are hidden from clipboard history and are cleared after 90 seconds; no Writing Tools, autofill or keyboard learning in any field; on Android, the screen is protected from screenshots and assistants. See [PRIVACY.md](PRIVACY.md).
 - Multi-select delete, split a login that lists several services into separate logins, and show/hide on every secret field.
 
 ## How it works
@@ -126,6 +130,7 @@ SyncedPass/
 SyncedPassTests/   tests for encryption, storage, backups, search, import and merging
 android/           the Android app (see android/README.md)
 docs/SYNC.md       the sync protocol, implemented by both apps
+PRIVACY.md         what the apps keep private, and how
 Scripts/
   generate_services.py   rebuilds the service list and logos
   export_android_services.swift   copies the service list and logos to the Android app
@@ -167,7 +172,7 @@ Service logos come from [Simple Icons](https://simpleicons.org) and [gilbarbara/
 ### macOS improvements
 
 - [ ] Auto-lock after a period of inactivity
-- [ ] Clear copied passwords from the clipboard after a short time
+- [x] Clear copied passwords from the clipboard after a short time
 - [ ] Password generator
 - [ ] Unlock with Touch ID
 - [ ] Undo (⌘Z) for edits and deletes

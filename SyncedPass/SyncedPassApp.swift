@@ -16,7 +16,13 @@ struct SyncedPassApp: App {
             RootView()
                 .environment(store)
                 .environment(sync)
+                // Apple Intelligence's Writing Tools can send the text to Apple's
+                // servers or to ChatGPT: never offer them on logins.
+                .writingToolsBehavior(.disabled)
+                .autocorrectionDisabled()
         }
+        // Don't let macOS save the window's state to disk for reopening it.
+        .restorationBehavior(.disabled)
         .defaultSize(width: 900, height: 600)
         .commands { NewLoginCommands() }
     }

@@ -153,7 +153,7 @@ private struct PairingView: View {
                         Text("Choose your phone:")
                             .font(.callout.weight(.semibold))
                         ForEach(sync.phonesReadyToPair) { phone in
-                            Button(phone.name) { sync.pair(with: phone) }
+                            Button(phone.displayName ?? phone.name) { sync.pair(with: phone) }
                         }
                     }
                 } else {

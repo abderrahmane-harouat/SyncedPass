@@ -1,12 +1,7 @@
 package com.abdurahmanharouat.syncedpass.ui
 
-import android.content.ClipData
-import android.content.ClipDescription
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PersistableBundle
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
@@ -253,7 +248,7 @@ private fun ValueRow(label: String, value: String, secret: Boolean = false, copy
                 if (revealed) "Hide $label" else "Show $label",
             ) { revealed = !revealed }
         }
-        if (copyable) CopyButton(label, value, sensitive = secret)
+        if (copyable) CopyButton(label, value)
     }
 }
 
@@ -272,7 +267,7 @@ private fun WebsiteRow(website: String) {
         Text(website, SyncedPassTheme.type.body1, color = c.accent, modifier = Modifier.weight(1f), maxLines = 2)
         Icon(R.drawable.ph_arrow_square_out_regular, null, size = 20.dp, tint = c.textWeak)
         Spacer(Modifier.width(Spacing.s))
-        CopyButton("Website", website, sensitive = false)
+        CopyButton("Website", website)
     }
 }
 
@@ -297,11 +292,10 @@ private fun LinkRow(leading: @Composable () -> Unit, title: String, supporting: 
 }
 
 /**
- * Copies [value]; secrets are marked sensitive so Android doesn't show them
- * in its clipboard preview. The icon turns into a check for a moment.
+ * Copies [value] (see [Clipboard]). The icon turns into a check for a moment.
  */
 @Composable
-private fun CopyButton(label: String, value: String, sensitive: Boolean) {
+private fun CopyButton(label: String, value: String) {
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
@@ -312,7 +306,7 @@ private fun CopyButton(label: String, value: String, sensitive: Boolean) {
     }
     SmallIconButton(if (copied) R.drawable.ph_check_regular else R.drawable.ph_copy_regular, "Copy $label",
                     tint = if (copied) SyncedPassTheme.colors.success else SyncedPassTheme.colors.textWeak) {
-        copy(context, label, value, sensitive)
+        Clipboard.copy(context, label, value)
         copied = true
     }
 }
@@ -326,14 +320,6 @@ private fun SmallIconButton(@DrawableRes icon: Int, description: String, tint: a
     ) {
         Icon(icon, null, size = 22.dp, tint = tint)
     }
-}
-
-private fun copy(context: Context, label: String, value: String, sensitive: Boolean) {
-    val clip = ClipData.newPlainText(label, value)
-    if (sensitive) {
-        clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
-    }
-    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
 }
 
 private fun formatDate(date: ReferenceDate, style: FormatStyle): String =

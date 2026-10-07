@@ -24,13 +24,16 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.unit.dp
 import com.abdurahmanharouat.syncedpass.R
 import com.abdurahmanharouat.syncedpass.model.LoginItem
@@ -141,9 +144,10 @@ private fun BottomBar(query: String, onQuery: (String) -> Unit, onNew: () -> Uni
                 if (query.isEmpty()) Text("Search", SyncedPassTheme.type.body1, color = c.textPlaceholder)
                 BasicTextField(
                     value = query, onValueChange = onQuery, singleLine = true,
+                    keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                     textStyle = SyncedPassTheme.type.body1.copy(color = c.text),
                     cursorBrush = SolidColor(c.primaryBottom),
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search logins" },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Search logins"; contentDataType = ContentDataType.None },
                 )
             }
             if (query.isNotEmpty()) {

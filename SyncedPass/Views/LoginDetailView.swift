@@ -167,8 +167,7 @@ private struct DetailRow: View {
                         .buttonStyle(.borderless)
                     }
                     Button("Copy \(title)", systemImage: "doc.on.doc") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(value, forType: .string)
+                        Clipboard.copy(value)
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
@@ -176,5 +175,40 @@ private struct DetailRow: View {
                 }
             }
         }
+    }
+}
+
+/// Copies a login's details for pasting on this Mac only, and clears them
+/// again after `clearDelay` or when SyncedPass quits, unless something else
+/// was copied since.
+enum Clipboard {
+    static let clearDelay: Duration = .seconds(90)
+    private static var copied: Int?
+    private static var quitObserver: NSObjectProtocol?
+
+    static func copy(_ value: String) {
+        let pasteboard = NSPasteboard.general
+        // Not Universal Clipboard, which hands it to your other Apple devices.
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
+        pasteboard.setString(value, forType: .string)
+        // Tells clipboard history apps not to keep or show it (nspasteboard.org).
+        pasteboard.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+        pasteboard.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+        copied = pasteboard.changeCount
+        quitObserver = quitObserver ?? NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { _ in MainActor.assumeIsolated { clear() } }
+        let thisCopy = copied
+        Task {
+            try? await Task.sleep(for: clearDelay)
+            if copied == thisCopy { clear() }
+        }
+    }
+
+    private static func clear() {
+        if let copied, NSPasteboard.general.changeCount == copied {
+            NSPasteboard.general.clearContents()
+        }
+        copied = nil
     }
 }

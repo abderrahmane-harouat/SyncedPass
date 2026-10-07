@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
@@ -47,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -228,6 +230,8 @@ fun LabeledField(
             Spacer(Modifier.height(6.dp))
         }
         val area = minLines > 1
+        // contentDataType None: not offered to autofill (Google, Samsung Pass), which
+        // would offer to save what's typed here to the user's account.
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -236,9 +240,9 @@ fun LabeledField(
             textStyle = (if (secret && revealed) t.mono else t.body1).copy(color = c.text),
             cursorBrush = SolidColor(c.primaryBottom),
             visualTransformation = if (secret && !revealed) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = !secret && keyboardType == KeyboardType.Text),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = false),
             keyboardActions = KeyboardActions(onDone = { onDone() }, onGo = { onDone() }),
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label; contentDataType = ContentDataType.None },
             decorationBox = { inner ->
                 Row(
                     verticalAlignment = if (area) Alignment.Top else Alignment.CenterVertically,

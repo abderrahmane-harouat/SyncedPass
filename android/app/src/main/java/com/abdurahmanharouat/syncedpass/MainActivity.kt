@@ -1,9 +1,11 @@
 package com.abdurahmanharouat.syncedpass
 
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
+import android.view.contentcapture.ContentCaptureManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -24,6 +26,7 @@ import com.abdurahmanharouat.syncedpass.ui.HomeScreen
 import com.abdurahmanharouat.syncedpass.ui.ImportBackupScreen
 import com.abdurahmanharouat.syncedpass.ui.Operation
 import com.abdurahmanharouat.syncedpass.ui.PairMacScreen
+import com.abdurahmanharouat.syncedpass.ui.PrivateTextInput
 import com.abdurahmanharouat.syncedpass.ui.SettingsScreen
 import com.abdurahmanharouat.syncedpass.ui.SyncScreen
 import com.abdurahmanharouat.syncedpass.ui.LoginDetailScreen
@@ -33,6 +36,7 @@ import com.abdurahmanharouat.syncedpass.ui.UnlockScreen
 import com.abdurahmanharouat.syncedpass.ui.VaultViewModel
 import com.abdurahmanharouat.syncedpass.ui.theme.SyncedPassTheme
 import com.abdurahmanharouat.syncedpass.vault.VaultStore
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private val vault: VaultViewModel by viewModels()
@@ -47,11 +51,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // Keep passwords out of screenshots and the recent-apps preview.
-        // Off in debug builds so the app can be screenshotted while developing.
-        if (!BuildConfig.DEBUG) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        setContent { SyncedPassTheme { App(vault) } }
+        // Keeps the screen out of screenshots, screen recordings, the recent-apps
+        // preview, and assistants that read the screen (Circle to Search, Gemini,
+        // Bixby), which would send it to Google or Samsung.
+        if (!allowScreenshotsForDebugging()) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Content capture lets Android System Intelligence see the text on screen.
+        if (Build.VERSION.SDK_INT >= 29) getSystemService(ContentCaptureManager::class.java)?.isContentCaptureEnabled = false
+        setContent { SyncedPassTheme { PrivateTextInput { App(vault) } } }
     }
+
+    /** Debug builds only, for README screenshots: files/debug-allow-screenshots. */
+    private fun allowScreenshotsForDebugging() =
+        BuildConfig.DEBUG && File(filesDir, "debug-allow-screenshots").exists()
 
     override fun onStart() {
         super.onStart()

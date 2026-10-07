@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentDataType
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDataType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -234,8 +236,8 @@ fun SearchField(query: String, onQuery: (String) -> Unit, placeholder: String, m
         singleLine = true,
         textStyle = t.body1.copy(color = c.text),
         cursorBrush = SolidColor(c.primaryBottom),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        modifier = modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = placeholder; contentDataType = ContentDataType.None },
         decorationBox = { inner ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
