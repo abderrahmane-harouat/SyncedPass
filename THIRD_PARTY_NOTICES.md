@@ -1,5 +1,9 @@
 # Third-party notices
 
+SyncedPass's own code and artwork are licensed under the GNU GPL v3.0 or
+later (see [LICENSE](LICENSE)). The third-party material below is not covered
+by that license and keeps its own terms.
+
 ## Service logos
 
 The logos in `SyncedPass/Assets.xcassets/Services` are bundled so the app

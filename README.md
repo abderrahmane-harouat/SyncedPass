@@ -139,4 +139,8 @@ Service logos come from [Simple Icons](https://simpleicons.org) and [gilbarbara/
 
 ## License
 
-No license has been chosen yet. All rights reserved.
+SyncedPass is free software, licensed under the [GNU General Public License v3.0 or later](LICENSE).
+
+You may use, study, change and share it. If you distribute a modified version, you must publish its source code under the same license, so the code of any version people rely on stays open to inspection.
+
+**Not covered by this license:** the logos of third-party services, which remain trademarks of their owners and are included only to identify those services. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
