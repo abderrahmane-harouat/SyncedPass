@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -82,6 +83,10 @@ private fun App(vault: VaultViewModel) {
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     // The logins being viewed, most recent last; Back returns to the previous one, then home.
     var viewing by rememberSaveable { mutableStateOf(listOf<String>()) }
+    // Kept here rather than in the home screen, which leaves the screen while a
+    // login is open: coming back keeps the search and the scroll position.
+    var query by rememberSaveable { mutableStateOf("") }
+    val listState = rememberLazyListState()
     // null: home (or the editor). Otherwise a settings screen, see Route.
     var route by rememberSaveable { mutableStateOf<Route?>(null) }
     val exportState by vault.exportState.collectAsStateWithLifecycle()
@@ -110,6 +115,7 @@ private fun App(vault: VaultViewModel) {
         VaultStore.Status.Locked -> {
             editing = null
             viewing = emptyList()
+            query = ""
             route = null
             UnlockScreen(busy, error, vault::unlock)
         }
@@ -200,6 +206,9 @@ private fun App(vault: VaultViewModel) {
                 HomeScreen(
                     items = items,
                     search = vault.store::search,
+                    query = query,
+                    onQuery = { query = it },
+                    listState = listState,
                     onLock = vault::lock,
                     onSettings = { route = Route.Settings },
                     onNew = { vault.startEditing(null); editing = NEW_LOGIN },
