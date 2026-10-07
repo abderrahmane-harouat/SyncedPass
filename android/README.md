@@ -1,8 +1,16 @@
 # SyncedPass for Android
 
-The Android app, written in Kotlin with Jetpack Compose. It reads and writes the same vault file as the macOS app, so the two can sync later. It works locally only: there's no server or cloud, and Android's cloud backup and device transfer are turned off for its data. The app's only network use is syncing with your paired Mac over the local network ([docs/SYNC.md](../docs/SYNC.md)); Android requires the `INTERNET` permission for any socket, but the app only connects to, and accepts connections from, local addresses.
+The Android app, written in Kotlin with Jetpack Compose. It reads and writes the same vault file as the macOS app, and syncs with it. It works locally only: there's no server or cloud, and Android's cloud backup and device transfer are turned off for its data. The app's only network use is syncing with your paired Mac over the local network ([docs/SYNC.md](../docs/SYNC.md)); Android requires the `INTERNET` permission for any socket, but the app only connects to, and accepts connections from, local addresses.
 
 **Version 0.2.0** · Android 8.0 (API 26) or later
+
+<p align="center">
+  <img src="../docs/screenshots/android-home.png" width="32%" alt="The list of logins with service logos and a search bar">
+  &nbsp;
+  <img src="../docs/screenshots/android-detail.png" width="32%" alt="The details of a GitHub login, with masked password and copy buttons">
+</p>
+
+<p align="center"><sub>Screenshots use made-up sample data.</sub></p>
 
 ## What's here
 

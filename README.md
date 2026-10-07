@@ -7,11 +7,17 @@
 SyncedPass is a password manager for the Mac and Android that keeps your logins **on your own devices only**, and syncs them directly between your Mac and your phone over your local network.
 
 > **Local only. No cloud.**
-> SyncedPass has no account, no server and no cloud service. Your vault is an encrypted file on your Mac and is never uploaded anywhere. The only network access the app has is for syncing with your own paired phone, directly over your local network: it only connects to, and accepts connections from, the local network, and only syncs with devices you paired. Service logos are bundled with the app, not downloaded.
+> SyncedPass has no account, no server and no cloud service. Your vault is an encrypted file on each of your devices and is never uploaded anywhere. The only network access the app has is for syncing with your own paired phone, directly over your local network: it only connects to, and accepts connections from, the local network, and only syncs with devices you paired. Service logos are bundled with the app, not downloaded.
 
 ![SyncedPass main window showing a list of logins with service logos, and the details of a Gmail login](docs/screenshots/main.png)
 
 <p align="center"><img src="docs/screenshots/lock.png" width="60%" alt="SyncedPass lock screen asking for the master password"></p>
+
+<p align="center">
+  <img src="docs/screenshots/android-home.png" width="32%" alt="SyncedPass on Android: the list of logins with service logos and a search bar">
+  &nbsp;
+  <img src="docs/screenshots/android-detail.png" width="32%" alt="SyncedPass on Android: the details of a GitHub login, with masked password and copy buttons">
+</p>
 
 <p align="center"><sub>Screenshots use made-up sample data.</sub></p>
 
